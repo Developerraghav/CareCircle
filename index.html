@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CareCircle</title>
+<style>
+/* ===== LOOK AND FEEL ===== */
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,Segoe UI,Arial,sans-serif;font-size:18px;background:#f4f7fb;color:#1c2733}
+.wrap{max-width:560px;margin:0 auto;padding:56px 16px 140px}
+body.cg .wrap{max-width:760px;padding-bottom:40px}
+h1{font-size:26px;margin:8px 0 16px} h2{font-size:21px;margin:0 0 10px}
+.top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.card{background:#fff;border-radius:16px;padding:16px;margin-bottom:16px;box-shadow:0 2px 8px rgba(0,0,0,.08)}
+button{font-size:20px;border:0;border-radius:14px;padding:16px 18px;cursor:pointer;font-weight:600}
+.sbtn{font-size:15px;padding:8px 14px}
+.btn-row{display:flex;gap:10px;flex-wrap:wrap}
+.btn-row button{flex:1;min-width:110px}
+.green{background:#2e9e5b;color:#fff}.grey{background:#e3e8ee;color:#1c2733}
+.red{background:#d93030;color:#fff}.blue{background:#2563eb;color:#fff}.amber{background:#f5c542}
+.dose{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #eef1f5}
+.pic{width:56px;height:56px;border-radius:12px;background:#eef3fb;display:flex;align-items:center;justify-content:center;font-size:30px;overflow:hidden;flex:none}
+.pic img{width:100%;height:100%;object-fit:cover}
+.grow{flex:1}.small{font-size:15px;color:#5b6b7b}
+.tag{font-size:14px;padding:3px 10px;border-radius:20px;font-weight:700;white-space:nowrap}
+.t-taken{background:#d9f3e3;color:#17703d}.t-missed{background:#fde0e0;color:#a31d1d}.t-pending{background:#e8eef7;color:#41546b}
+.badge{border-radius:20px;padding:20px;text-align:center;color:#fff;font-size:30px;font-weight:800}
+.lv0{background:#2e9e5b}.lv1{background:#e0a800}.lv2{background:#f08a24}.lv3{background:#d93030}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.04)}}
+.pulse{animation:pulse 1s infinite}
+.sosbtn{position:fixed;left:50%;transform:translateX(-50%);bottom:18px;width:min(520px,92%);background:#d93030;color:#fff;font-size:26px;padding:20px;border-radius:50px;box-shadow:0 6px 18px rgba(217,48,48,.5);z-index:5}
+.overlay{position:fixed;inset:0;z-index:20;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px;color:#fff}
+.overlay.alarm{background:#b71c1c;animation:flash 1s infinite}
+@keyframes flash{50%{background:#e53935}}
+.overlay.ok{background:#1b5e20}
+.overlay button{margin-top:20px;padding:22px 28px;font-size:28px;background:#fff;color:#111}
+.count{font-size:110px;font-weight:800;line-height:1}
+.banner{background:#b71c1c;color:#fff;border-radius:16px;padding:16px;margin-bottom:16px}
+.banner button{margin:8px 8px 0 0;font-size:17px;padding:12px 16px}
+.feed{padding:8px 0;border-bottom:1px solid #eef1f5;font-size:16px}
+.feed.bad{color:#a31d1d;font-weight:700}.feed.good{color:#17703d}
+.bars{display:flex;gap:10px;align-items:flex-end;height:120px}
+.bars div{flex:1;text-align:center;font-size:13px}
+.bars span{display:block;background:#2563eb;border-radius:6px 6px 0 0}
+details.demo{position:fixed;top:8px;right:8px;z-index:30;background:#fff;border-radius:12px;padding:8px 12px;box-shadow:0 2px 10px rgba(0,0,0,.25);font-size:15px}
+details.demo button{display:block;width:100%;margin-top:6px;font-size:15px;padding:10px;background:#eef3fb}
+dialog{border:0;border-radius:16px;padding:20px;width:min(440px,92%)}
+.card input,.card select,dialog input,dialog select{width:100%;font-size:18px;padding:12px;margin:4px 0 12px;border:1px solid #c5cfdb;border-radius:10px}
+.code{font-size:40px;font-weight:800;letter-spacing:6px;color:#2563eb}
+.linkbtn{background:none;color:#5b6b7b;font-size:14px;text-decoration:underline;padding:6px}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+
+<!-- DEMO CONTROLS (shown only when logged in) -->
+<details class="demo" id="demoBox"><summary>🛠 Demo</summary>
+  <button onclick="demoReminder()">Trigger dose reminder now</button>
+  <button onclick="demoMissed(false)">Simulate missed dose</button>
+  <button onclick="demoMissed(true)">Simulate critical medicine missed</button>
+  <button onclick="demoHelp()">Simulate "Need help"</button>
+  <button onclick="resetDay()">Reset day</button>
+</details>
+
+<!-- ADD MEDICINE FORM -->
+<dialog id="medDialog">
+  <h2>Add medicine</h2>
+  <label>Photo of medicine</label><input type="file" id="mPhoto" accept="image/*" capture="environment">
+  <label>Name</label><input id="mName" placeholder="e.g. Metformin">
+  <label>Dosage</label><input id="mDose" placeholder="e.g. 1 tablet">
+  <label>When?</label>
+  <select id="mSlot"><option value="morning">Morning (breakfast)</option><option value="afternoon">Afternoon (lunch)</option><option value="evening">Evening (dinner)</option><option value="night">Night (before sleep)</option></select>
+  <label>Food</label>
+  <select id="mFood"><option value="after">After food</option><option value="before">Before food</option></select>
+  <label><input type="checkbox" id="mCrit" style="width:auto;margin-right:8px">Critical medicine (missing it is dangerous)</label>
+  <div class="btn-row" style="margin-top:14px">
+    <button class="green" onclick="saveMed()">Save</button>
+    <button class="grey" onclick="document.getElementById('medDialog').close()">Cancel</button>
+  </div>
+</dialog>
+
+<!-- DAILY ROUTINE FORM -->
+<dialog id="routineDialog">
+  <h2>My daily routine</h2>
+  <p class="small">Medicine times are calculated from these.</p>
+  <label>Breakfast</label><input type="time" id="rB">
+  <label>Lunch</label><input type="time" id="rL">
+  <label>Dinner</label><input type="time" id="rD">
+  <label>Sleep</label><input type="time" id="rS">
+  <div class="btn-row">
+    <button class="green" onclick="saveRoutine()">Save</button>
+    <button class="grey" onclick="document.getElementById('routineDialog').close()">Cancel</button>
+  </div>
+</dialog>
+
+<script>
+/* =====================================================================
+   CARECIRCLE PROTOTYPE WITH LOGIN
+   How it works:
+   1. All data lives in one object S, saved in localStorage.
+      S.users = accounts. S.data = health data, one entry per elder,
+      keyed by the elder's 6-digit invite code.
+   2. WHO is logged in is stored in sessionStorage (separate for each
+      TAB). That is why one tab can be the elder and another the caregiver.
+   3. render() redraws the screen. Every action changes S, saves it,
+      and calls render(). The 'storage' event updates the other tabs.
+   NOTE: This login is SIMULATED (passwords sit in the browser).
+   A real app would use Supabase Auth.
+   ===================================================================== */
+
+/* ---------- SETTINGS you can play with ---------- */
+const KEY = 'carecircle_v2';
+const SESSION = 'carecircle_session';
+const ESCALATE_SEC = 15;   // seconds before 2nd reminder / missed (real app: 15-30 MINUTES)
+const COUNTDOWN_SEC = 30;  // SOS countdown length
+
+/* ---------- RISK SCORING POINTS ---------- */
+const PTS = { missedNormal: 1, missedCritical: 3, unwell: 2, noResponse: 2, taken: -1, good: -2 };
+// Levels: 0-2 Stable, 3-4 Needs attention, 5-6 High risk, 7+ Critical
+const LEVELS = [
+  { name: 'Stable', icon: '🟢' }, { name: 'Needs attention', icon: '🟡' },
+  { name: 'High risk', icon: '🟠' }, { name: 'CRITICAL', icon: '🔴' }
+];
+
+/* ---------- DATA TEMPLATES ---------- */
+function newElderData(o) {
+  return {
+    elder: { name: o.name, age: o.age, conditions: o.conditions, allergies: o.allergies,
+      routine: { wake: '06:30', breakfast: '08:00', lunch: '13:00', dinner: '20:00', sleep: '22:00' } },
+    meds: o.meds || [], status: {}, events: [], scoreFrom: 0, reminder: null,
+    sos: { active: false, sent: false, startedAt: 0 }, lastCheckin: null
+  };
+}
+function freshState() {          // demo accounts + demo data
+  return {
+    users: [
+      { email: 'sharma@demo.com', pass: '1234', name: 'Mrs. Sharma', role: 'elder', code: '482916' },
+      { email: 'riya@demo.com', pass: '1234', name: 'Riya', role: 'caregiver', linkedCode: '482916' }
+    ],
+    data: { '482916': newElderData({ name: 'Mrs. Sharma', age: 68, conditions: 'Diabetes, High BP', allergies: 'Penicillin',
+      meds: [
+        { id: 1, name: 'Insulin',   dose: '10 units',  slot: 'morning',   food: 'before', critical: true,  emoji: '💉', photo: null },
+        { id: 2, name: 'BP Tablet', dose: '1 tablet',  slot: 'afternoon', food: 'after',  critical: true,  emoji: '💊', photo: null },
+        { id: 3, name: 'Vitamin D', dose: '1 capsule', slot: 'evening',   food: 'after',  critical: false, emoji: '🟡', photo: null }
+      ] }) }
+  };
+}
+
+/* ---------- SAVE / LOAD / SYNC ---------- */
+let S = load();
+let me = sessionStorage.getItem(SESSION);        // email of the user logged in THIS tab
+function load() { try { return JSON.parse(localStorage.getItem(KEY)) || freshState(); } catch (e) { return freshState(); } }
+function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { alert('Storage full - try a smaller photo'); } }
+function commit() { save(); render(); }
+// Fires in the OTHER tabs when one tab saves = the "live update"
+window.addEventListener('storage', e => { if (e.key === KEY) { S = load(); if (user()) render(); } });
+
+/* ---------- WHO AM I? ---------- */
+function user() { return S.users.find(u => u.email === me); }
+function code() { const u = user(); return !u ? null : u.role === 'elder' ? u.code : u.linkedCode; }
+function D() { return S.data[code()]; }          // health data of the elder I'm viewing
+function cgNames(c) { return S.users.filter(u => u.role === 'caregiver' && u.linkedCode === c).map(u => u.name).join(' & ') || 'your caregiver'; }
+
+/* ---------- SMALL HELPERS ---------- */
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const med = id => D().meds.find(m => m.id === id);
+const clock = t => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+const pic = m => m.photo ? `<img src="${m.photo}">` : m.emoji || '💊';
+function log(type, text, points = 0, medId = null) { D().events.push({ t: Date.now(), type, text, points, medId }); }
+
+/* ---------- SMART SCHEDULE (built from the daily routine) ---------- */
+function medMinutes(m) {
+  const r = D().elder.routine;
+  const base = { morning: r.breakfast, afternoon: r.lunch, evening: r.dinner, night: r.sleep }[m.slot];
+  const [h, mi] = base.split(':').map(Number);
+  if (m.slot === 'night') return h * 60 + mi - 30;
+  return h * 60 + mi + (m.food === 'after' ? 30 : -30);
+}
+function fmtTime(mins) {
+  const h = Math.floor(mins / 60), m = mins % 60;
+  return `${((h + 11) % 12) + 1}:${String(m).padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}`;
+}
+
+/* ---------- RISK ENGINE ---------- */
+function riskInfo() {
+  const d = D(), ev = d.events.slice(d.scoreFrom);
+  const emergency = ev.some(e => e.type === 'help' || e.type === 'sos');
+  const pts = Math.max(0, ev.reduce((sum, e) => sum + e.points, 0));
+  const lvl = emergency ? 3 : pts >= 7 ? 3 : pts >= 5 ? 2 : pts >= 3 ? 1 : 0;
+  return { pts, lvl, emergency };
+}
+
+/* =====================================================================
+   LOGIN / SIGN UP / LINKING
+   ===================================================================== */
+let authMode = 'login', authMsg = '', linkMsg = '';
+function setMode(m) { authMode = m; authMsg = ''; render(); }
+function startSession(email) { me = email; sessionStorage.setItem(SESSION, email); authMsg = ''; render(); }
+function logout() { me = null; sessionStorage.removeItem(SESSION); authMode = 'login'; render(); }
+function demoLogin(email) { startSession(email); }
+function doLogin() {
+  const em = $('#lEmail').value.trim().toLowerCase(), pw = $('#lPass').value;
+  const u = S.users.find(x => x.email === em && x.pass === pw);
+  if (!u) { authMsg = 'Wrong email or password'; return render(); }
+  startSession(u.email);
+}
+function toggleRole() {
+  const elder = $('#sRole').value === 'elder';
+  $('#elderFields').style.display = elder ? 'block' : 'none';
+  $('#cgFields').style.display = elder ? 'none' : 'block';
+}
+function newCode() { let c; do { c = String(Math.floor(100000 + Math.random() * 900000)); } while (S.data[c]); return c; }
+function doSignup() {
+  const name = $('#sName').value.trim(), em = $('#sEmail').value.trim().toLowerCase(), pw = $('#sPass').value, role = $('#sRole').value;
+  if (!name) return fail('Please enter your name');
+  if (!em.includes('@')) return fail('Please enter a valid email');
+  if (pw.length < 4) return fail('Password needs at least 4 characters');
+  if (S.users.some(u => u.email === em)) return fail('That email already has an account. Please log in.');
+  if (role === 'elder') {
+    const c = newCode();
+    S.users.push({ email: em, pass: pw, name, role, code: c });
+    S.data[c] = newElderData({ name, age: $('#sAge').value || '-', conditions: $('#sCond').value || 'Not specified', allergies: 'Not specified' });
+  } else {
+    const c = $('#sCode').value.trim();
+    if (c && !S.data[c]) return fail('Invalid invite code. Ask the elder for their 6-digit code.');
+    S.users.push({ email: em, pass: pw, name, role, linkedCode: c || null });
+    if (c) { me = em; log('link', `${name} linked as caregiver`, 0); }
+  }
+  save(); startSession(em);
+  function fail(msg) { authMsg = msg; render(); }
+}
+function doLink() {
+  const c = $('#linkCode').value.trim();
+  if (!S.data[c]) { linkMsg = 'Invalid code. Check the 6 digits and try again.'; return render(); }
+  user().linkedCode = c; linkMsg = ''; log('link', `${user().name} linked as caregiver`, 0); commit();
+}
+function resetAll() {
+  if (!confirm('Delete ALL accounts and data and restore the demo accounts?')) return;
+  S = freshState(); me = null; sessionStorage.removeItem(SESSION); save(); render();
+}
+function copyCode() { navigator.clipboard && navigator.clipboard.writeText(user().code); alert('Code copied: ' + user().code); }
+
+/* ---------- ELDER ACTIONS ---------- */
+function takeDose(id) {
+  const d = D(); d.status[id] = 'taken';
+  log('taken', `${d.elder.name} took ${med(id).name} ✅`, PTS.taken, id);
+  d.reminder = null; commit();
+}
+function missDose(id, why) {
+  const d = D(), m = med(id); d.status[id] = 'missed';
+  log('missed', `${d.elder.name} ${why} ${m.name}${m.critical ? ' (CRITICAL)' : ''}`, m.critical ? PTS.missedCritical : PTS.missedNormal, id);
+}
+function skipDose(id) { missDose(id, 'skipped'); D().reminder = null; commit(); }
+function later() {
+  const d = D(), r = d.reminder; r.stage = 2; r.hiddenUntil = Date.now() + 10000; r.startedAt = r.hiddenUntil;
+  log('later', `${d.elder.name} asked to be reminded later`, 0); commit();
+}
+function checkin(kind) {
+  const d = D(), n = d.elder.name;
+  if (kind === 'good') log('good', `${n} feels good 😊`, PTS.good);
+  if (kind === 'unwell') log('unwell', `${n} is not feeling so well 😐`, PTS.unwell);
+  if (kind === 'help') log('help', `${n} says NEED HELP 😟`, 0);
+  d.lastCheckin = { kind, t: Date.now() }; commit();
+}
+function pressSOS() { log('sos', `${D().elder.name} pressed the SOS button`, 0); commit(); }
+function cancelSOS() {
+  const d = D(); log('cancel', `${d.elder.name} cancelled SOS: "I'm OK"`, 0);
+  d.sos = { active: false, sent: false, startedAt: 0 }; d.scoreFrom = d.events.length; commit();
+}
+function acknowledge() {
+  const d = D(); log('ack', `${user().name} acknowledged and is responding`, 0);
+  d.sos = { active: false, sent: false, startedAt: 0 }; d.scoreFrom = d.events.length; commit();
+}
+
+/* ---------- TIMER: runs every second in an ELDER tab (escalation + auto-SOS) ---------- */
+function tick() {
+  const u = user(); if (!u || u.role !== 'elder' || !D()) return;
+  const d = D(); let changed = false; const now = Date.now(), r = d.reminder;
+  if (r && now >= r.startedAt + ESCALATE_SEC * 1000) {
+    const m = med(r.medId);
+    if (r.stage === 1) { r.stage = 2; r.startedAt = now; r.hiddenUntil = 0; log('reminder2', `Second reminder sent for ${m.name}`, 0); }
+    else { log('noresponse', `No response to reminders for ${m.name}`, PTS.noResponse, m.id); missDose(m.id, 'did not take'); d.reminder = null; }
+    changed = true;
+  }
+  if (!d.sos.active && !d.sos.sent && riskInfo().lvl === 3) {
+    d.sos = { active: true, sent: false, startedAt: now };
+    log('sosstart', 'Risk is CRITICAL: auto-SOS countdown started on elder phone', 0); changed = true;
+  }
+  if (d.sos.active) {
+    beep();
+    if (now - d.sos.startedAt >= COUNTDOWN_SEC * 1000) {
+      d.sos.active = false; d.sos.sent = true;
+      log('sossent', '🚨 SOS SENT: live location + medical summary shared with caregiver', 0); changed = true;
+    }
+  }
+  if (changed) commit(); else if (d.sos.active || d.reminder) render();
+}
+let actx;
+function beep() {
+  try { actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    const o = actx.createOscillator(); o.frequency.value = 880; o.connect(actx.destination); o.start(); setTimeout(() => o.stop(), 200); } catch (e) {}
+  try { navigator.vibrate && navigator.vibrate(300); } catch (e) {}
+}
+function speakMed(id) {
+  const m = med(id); if (!('speechSynthesis' in window)) return;
+  speechSynthesis.speak(new SpeechSynthesisUtterance(`Time to take ${m.name}, ${m.dose}`));
+}
+
+/* ---------- ADD MEDICINE / EDIT ROUTINE ---------- */
+let pendingPhoto = null;
+$('#mPhoto').addEventListener('change', e => {
+  const f = e.target.files[0]; if (!f) return;
+  const rd = new FileReader();
+  rd.onload = () => { const img = new Image(); img.onload = () => {
+    const c = document.createElement('canvas'); c.width = c.height = 160;
+    c.getContext('2d').drawImage(img, 0, 0, 160, 160); pendingPhoto = c.toDataURL('image/jpeg', .7); };
+    img.src = rd.result; };
+  rd.readAsDataURL(f);
+});
+function saveMed() {
+  const name = $('#mName').value.trim(); if (!name) { alert('Please enter a name'); return; }
+  D().meds.push({ id: Date.now(), name, dose: $('#mDose').value || '1 dose', slot: $('#mSlot').value,
+    food: $('#mFood').value, critical: $('#mCrit').checked, emoji: '💊', photo: pendingPhoto });
+  pendingPhoto = null; $('#mName').value = ''; $('#mDose').value = ''; $('#mCrit').checked = false;
+  $('#medDialog').close(); commit();
+}
+function openRoutine() {
+  const r = D().elder.routine; $('#rB').value = r.breakfast; $('#rL').value = r.lunch; $('#rD').value = r.dinner; $('#rS').value = r.sleep;
+  $('#routineDialog').showModal();
+}
+function saveRoutine() {
+  const r = D().elder.routine;
+  r.breakfast = $('#rB').value || r.breakfast; r.lunch = $('#rL').value || r.lunch;
+  r.dinner = $('#rD').value || r.dinner; r.sleep = $('#rS').value || r.sleep;
+  $('#routineDialog').close(); commit();
+}
+
+/* ---------- DEMO CONTROLS ---------- */
+function pending(critical) { const d = D(); return d.meds.find(m => !d.status[m.id] && (critical === null || m.critical === critical)); }
+function demoReminder() {
+  const d = D(), m = pending(null); if (!m) return alert('No pending medicines. Add one, or press "Reset day".');
+  d.reminder = { medId: m.id, stage: 1, startedAt: Date.now(), hiddenUntil: 0 };
+  log('reminder', `Reminder sent to ${d.elder.name}: ${m.name}`, 0); commit();
+}
+function demoMissed(critical) {
+  const m = pending(critical) || (critical ? null : pending(null));
+  if (!m) return alert('No matching pending medicine. Press "Reset day".');
+  missDose(m.id, 'missed'); commit();
+}
+function demoHelp() { checkin('help'); }
+function resetDay() {
+  const d = D(); d.status = {}; d.events = []; d.scoreFrom = 0; d.reminder = null; d.lastCheckin = null;
+  d.sos = { active: false, sent: false, startedAt: 0 }; commit();
+}
+
+/* =====================================================================
+   SCREENS
+   ===================================================================== */
+function render() {
+  const u = user();
+  document.body.className = u && u.role === 'caregiver' ? 'cg' : '';
+  $('#demoBox').style.display = u && code() && D() ? 'block' : 'none';
+  $('#app').innerHTML = !u ? authScreen()
+    : u.role === 'elder' ? elderScreen()
+    : (u.linkedCode && D()) ? caregiverScreen() : linkScreen();
+}
+
+/* ----- LOGIN / SIGN UP SCREEN ----- */
+function authScreen() {
+  let h = `<h1>💙 CareCircle</h1><p><i>Not just a reminder. A safety net.</i></p>
+  <div class="btn-row" style="margin-bottom:14px">
+    <button class="${authMode === 'login' ? 'blue' : 'grey'}" onclick="setMode('login')">Log in</button>
+    <button class="${authMode === 'signup' ? 'blue' : 'grey'}" onclick="setMode('signup')">Sign up</button></div>`;
+  if (authMsg) h += `<div class="banner">${esc(authMsg)}</div>`;
+  if (authMode === 'login') {
+    h += `<form class="card" onsubmit="doLogin();return false"><h2>Welcome back</h2>
+      <label>Email</label><input id="lEmail" type="email" placeholder="you@example.com">
+      <label>Password</label><input id="lPass" type="password">
+      <button class="blue" style="width:100%">Log in</button></form>
+    <div class="card"><h2>⚡ Demo accounts</h2><p class="small">Password for both: 1234</p>
+      <div class="btn-row"><button class="blue" onclick="demoLogin('sharma@demo.com')">👵 Demo Elder<br><span class="small" style="color:#fff">Mrs. Sharma</span></button>
+      <button class="green" onclick="demoLogin('riya@demo.com')">🧑 Demo Caregiver<br><span class="small" style="color:#fff">Riya</span></button></div></div>
+    <button class="linkbtn" onclick="resetAll()">Reset all demo data</button>`;
+  } else {
+    h += `<form class="card" onsubmit="doSignup();return false"><h2>Create your account</h2>
+      <label>Full name</label><input id="sName">
+      <label>Email</label><input id="sEmail" type="email">
+      <label>Password (use a fake one for this demo)</label><input id="sPass" type="password">
+      <label>I am...</label>
+      <select id="sRole" onchange="toggleRole()"><option value="elder">I need care (Elder)</option><option value="caregiver">I care for someone (Caregiver)</option></select>
+      <div id="elderFields"><label>Age</label><input id="sAge" type="number" min="1">
+        <label>Health conditions</label><input id="sCond" placeholder="e.g. Diabetes, High BP"></div>
+      <div id="cgFields" style="display:none"><label>Elder's 6-digit invite code (optional, you can add it later)</label>
+        <input id="sCode" inputmode="numeric" maxlength="6" placeholder="e.g. 482916"></div>
+      <button class="green" style="width:100%">Create account</button></form>`;
+  }
+  return h;
+}
+
+/* ----- CAREGIVER: LINK TO AN ELDER ----- */
+function linkScreen() {
+  return `<div class="top"><h1>Hi ${esc(user().name)} 👋</h1><button class="grey sbtn" onclick="logout()">Log out</button></div>
+  <div class="card"><h2>Link to an elder</h2><p>Ask the elder for the 6-digit code shown on their home screen.</p>
+    ${linkMsg ? `<div class="banner">${esc(linkMsg)}</div>` : ''}
+    <input id="linkCode" inputmode="numeric" maxlength="6" placeholder="6-digit code">
+    <button class="blue" style="width:100%" onclick="doLink()">Link</button>
+    <p class="small">Demo code: 482916 (Mrs. Sharma)</p></div>`;
+}
+
+/* ----- ELDER SCREEN ----- */
+function elderScreen() {
+  const d = D(), u = user(), now = Date.now();
+  let h = `<div class="top"><h1>Hello, ${esc(d.elder.name)} 👋</h1><button class="grey sbtn" onclick="logout()">Log out</button></div>`;
+  h += `<div class="card" style="text-align:center"><div class="small">Your invite code. Share it with your caregiver</div>
+    <div class="code">${u.code}</div><button class="grey sbtn" onclick="copyCode()">📋 Copy</button>
+    <div class="small" style="margin-top:8px">Linked caregiver: <b>${esc(cgNames(u.code))}</b></div></div>`;
+  const r = d.reminder;
+  if (r && now >= (r.hiddenUntil || 0)) {
+    const m = med(r.medId), left = Math.max(0, Math.ceil((r.startedAt + ESCALATE_SEC * 1000 - now) / 1000));
+    h += `<div class="card" style="border:4px solid #2563eb"><h2>⏰ ${r.stage === 2 ? 'Second reminder!' : 'Time for your medicine'}</h2>
+      <div class="dose"><div class="pic">${pic(m)}</div><div class="grow"><b style="font-size:24px">${esc(m.name)}</b>
+      <div>${esc(m.dose)} · ${m.food} food</div></div><button class="grey" onclick="speakMed(${m.id})">🔊</button></div>
+      <div class="btn-row" style="margin-top:12px"><button class="green" onclick="takeDose(${m.id})">✅ Taken</button>
+      <button class="amber" onclick="later()">⏳ Later</button><button class="grey" onclick="skipDose(${m.id})">❌ Skipped</button></div>
+      <p class="small">No answer in ${left}s → ${r.stage === 1 ? 'second reminder' : 'your caregiver is alerted'}</p></div>`;
+  }
+  h += `<div class="card"><h2>Today's medicines</h2>`;
+  if (!d.meds.length) h += `<p class="small">No medicines yet. Tap "Add medicine" to start.</p>`;
+  [...d.meds].sort((a, b) => medMinutes(a) - medMinutes(b)).forEach(m => {
+    const st = d.status[m.id] || 'pending';
+    h += `<div class="dose"><div class="pic">${pic(m)}</div><div class="grow"><b>${esc(m.name)}</b> ${m.critical ? '⚠️' : ''}
+      <div class="small">${fmtTime(medMinutes(m))} · ${esc(m.dose)} · ${m.food} food</div></div>
+      <span class="tag t-${st}">${st === 'taken' ? 'Taken ✅' : st === 'missed' ? 'Missed ❌' : 'Pending'}</span></div>`;
+  });
+  h += `<div class="btn-row" style="margin-top:12px"><button class="blue" onclick="document.getElementById('medDialog').showModal()">➕ Add medicine</button>
+    <button class="grey" onclick="openRoutine()">🕒 My routine</button></div></div>`;
+  h += `<div class="card"><h2>How are you feeling?</h2><div class="btn-row">
+    <button class="green" onclick="checkin('good')">😊 Good</button>
+    <button class="amber" onclick="checkin('unwell')">😐 Not so well</button>
+    <button class="red" onclick="checkin('help')">😟 Need help</button></div></div>`;
+  h += `<button class="sosbtn" onclick="pressSOS()">🆘 SOS</button>`;
+  if (d.sos.active) {
+    const left = Math.max(0, COUNTDOWN_SEC - Math.floor((now - d.sos.startedAt) / 1000)), who = esc(cgNames(u.code));
+    h += `<div class="overlay alarm"><div style="font-size:30px">🚨 Emergency detected</div><div class="count">${left}</div>
+      <div style="font-size:22px">Sending SOS to ${who} in ${left} seconds</div>
+      <button onclick="cancelSOS()">I'm OK - cancel</button></div>`;
+  } else if (d.sos.sent) {
+    h += `<div class="overlay ok"><div style="font-size:70px">✅</div><h1>SOS sent</h1>
+      <p style="font-size:22px">Location and medical summary shared with ${esc(cgNames(u.code))}.<br><small>(simulated in this prototype)</small></p>
+      <p>Waiting for a response…</p><button onclick="cancelSOS()">I'm OK now</button></div>`;
+  }
+  return h;
+}
+
+/* ----- CAREGIVER SCREEN ----- */
+function caregiverScreen() {
+  const d = D(), u = user(), R = riskInfo(), L = LEVELS[R.lvl], now = Date.now();
+  let h = `<div class="top"><h1>👋 Hi ${esc(u.name)}, monitoring ${esc(d.elder.name)}</h1><button class="grey sbtn" onclick="logout()">Log out</button></div>`;
+  if (d.sos.active) {
+    const left = Math.max(0, COUNTDOWN_SEC - Math.floor((now - d.sos.startedAt) / 1000));
+    h += `<div class="banner pulse"><b>🚨 Auto-SOS countdown running on ${esc(d.elder.name)}'s phone: ${left}s</b><br>She can still cancel if she is OK.</div>`;
+  }
+  if (d.sos.sent) {
+    h += `<div class="banner"><b>🚨 SOS RECEIVED from ${esc(d.elder.name)}</b><br>
+      📍 Live location: near home (simulated)<br>🩺 ${esc(d.elder.conditions)} · Allergies: ${esc(d.elder.allergies)}<br>
+      💊 Missed: ${d.meds.filter(m => d.status[m.id] === 'missed').map(m => esc(m.name)).join(', ') || 'none'}<br>
+      <button class="grey" onclick="alert('Calling ${esc(d.elder.name)}... (simulated)')">📞 Call her</button>
+      <button class="green" onclick="acknowledge()">✅ I'm responding</button></div>`;
+  }
+  h += `<div class="badge lv${R.lvl} ${R.lvl >= 2 ? 'pulse' : ''}">${L.icon} ${L.name}<div style="font-size:16px;font-weight:400">Risk score: ${R.emergency ? 'emergency' : R.pts}</div></div><br>`;
+  h += `<div class="card"><h2>Today's medicines</h2>`;
+  if (!d.meds.length) h += `<p class="small">The elder hasn't added medicines yet.</p>`;
+  d.meds.forEach(m => { const st = d.status[m.id] || 'pending';
+    h += `<div class="dose"><div class="pic">${pic(m)}</div><div class="grow"><b>${esc(m.name)}</b> ${m.critical ? '⚠️ critical' : ''}
+      <div class="small">${fmtTime(medMinutes(m))}</div></div><span class="tag t-${st}">${st}</span></div>`; });
+  const ci = d.lastCheckin;
+  h += `<p>Latest check-in: <b>${ci ? ({ good: '😊 Good', unwell: '😐 Not so well', help: '😟 Needs help' }[ci.kind] + ' at ' + clock(ci.t)) : 'none yet'}</b></p></div>`;
+  h += `<div class="card"><h2>🔔 Live alerts</h2>`;
+  h += d.events.length ? [...d.events].reverse().map(e =>
+    `<div class="feed ${e.points > 0 || /SOS|NEED|CRITICAL/.test(e.text) ? 'bad' : e.points < 0 ? 'good' : ''}">${clock(e.t)} · ${esc(e.text)}</div>`).join('')
+    : '<p class="small">Nothing yet. Use the 🛠 Demo menu.</p>';
+  h += `</div><div class="card"><h2>🩺 Medical summary</h2><p><b>${esc(d.elder.name)}</b>, ${esc(d.elder.age)}<br>Conditions: ${esc(d.elder.conditions)}<br>
+    Allergies: ${esc(d.elder.allergies)}<br>Medicines: ${d.meds.map(m => esc(m.name)).join(', ') || 'none'}<br>
+    Last activity: ${d.events.length ? clock(d.events[d.events.length - 1].t) : '-'}</p></div>`;
+  const total = d.meds.length, taken = d.meds.filter(m => d.status[m.id] === 'taken').length;
+  const week = [80, 100, 60, 100, 90, 70, total ? Math.round(taken / total * 100) : 0];
+  h += `<div class="card"><h2>📊 Weekly adherence</h2><div class="bars">` + week.map((v, i) => {
+    const dn = new Date(Date.now() - (6 - i) * 864e5).toLocaleDateString([], { weekday: 'short' });
+    return `<div><span style="height:${Math.max(v, 3)}px"></span>${dn}<br>${v}%</div>`; }).join('') +
+    `</div><p class="small">Past days are sample data.</p></div>`;
+  return h;
+}
+
+/* ---------- START ---------- */
+render();
+setInterval(() => {
+  const u = user(); if (!u) return;
+  if (u.role === 'elder') tick(); else { const d = D(); if (d && d.sos.active) render(); }
+}, 1000);
+</script>
+</body>
+</html>
